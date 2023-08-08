@@ -1,0 +1,481 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```{r}
+library (tidyverse)
+library(caret)
+library(mice)
+library(gridExtra)
+```
+
+```{r}
+# read the data
+train <- read.csv('C:/Users/swapn/Downloads/train (1).csv', stringsAsFactors = T)
+
+
+```
+
+```{r}
+# Take a look to the data
+head((train))
+```
+
+```{r}
+# Look into the data
+str((train))
+```
+
+```{r}
+summary(train)
+```
+
+```{r}
+
+
+```
+
+```{r}
+#Home Planet
+#function to create a ggplot
+plot_gg = function(column){
+    ggplot(data = train, mapping = aes(x = {{column}}, fill = Transported)) +
+      geom_bar(position = 'dodge') +
+      scale_fill_manual('legend', values = c("#F8766D", "#39954E"))
+}
+
+# home planet
+plot_gg(HomePlanet) + 
+    ggtitle("Transported Counts by HomePlanet")
+
+
+
+```
+
+Homeplanet seems to be coreleated with Transported.
+
+Notably, the distribution of `Transported` values in the NA data is much closer to data labeled Mars compared to Earth.
+
+So I replace the Na value with Earth.
+
+```{r}
+train$HomePlanet <- train$HomePlanet %>% replace(is.na(.),"Earth")
+
+```
+
+```{r}
+# Cryosleep
+
+plot_gg(CryoSleep) + 
+    ggtitle("Transported Counts by CryoSleep")
+```
+
+From the graph it seems that `CryoSleep` column is strongly correlated with `Transported`. I'd like my chances of staying on the ship more if I was conscious when the crash happened.
+
+```{r}
+# Destination
+
+plot_gg(Destination) + 
+    ggtitle("Transported Counts by Destination")
+
+```
+
+`Destination` looks to be another important column. The proportion of passengers `Transported` differs significantly depending on their `Destination`.
+
+```{r}
+#Change the NA for TRAPPIST-1e, because it is the majority group
+train$Destination <- train$Destination %>% replace(is.na(.),"TRAPPIST-1e")
+```
+
+`{# CATEGORY}`
+
+```{r}
+# VIP by category
+ggplot(data = train, aes(x = VIP, y = after_stat(count), fill = Transported)) +
+  geom_bar() +
+  scale_fill_manual(values = c("blue", "orangered")) +
+  labs(title = "VIP") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+`VIP` doesn't seem to be too useful due to the similar proportions of `Transported` and the small amount of TRUE observations.
+
+```{r}
+# money spent total
+train$total_spent = rowSums(train[c(8:12)], na.rm = TRUE)
+train$total_spent_cat = ifelse(train$total_spent == 0, 1,
+                             ifelse(train$total_spent < 1000, 2,
+                                    ifelse(train$total_spent < 2000, 3, 4)))
+# plot categorical var
+plot_gg(total_spent_cat) + 
+    ggtitle("Transported Counts by Total Spent")
+
+# remove total spent
+train = train %>% select(-c(total_spent, total_spent_cat))
+
+```
+
+```         
+Spending on amenities is correlated with Transported.
+```
+
+```{r}
+
+p1 <- ggplot(data = na.omit(train), aes(x = RoomService, fill = VIP)) +
+      geom_density(alpha = 0.5) +
+      scale_fill_manual(values = c("gray50", "green","red")) +
+      geom_rug(aes(color = VIP), alpha = 0.5) +
+      scale_color_manual(values = c("gray50", "orangered2","yellow")) +
+      theme_bw()
+p2 <- ggplot(data = na.omit(train), aes(x = FoodCourt, fill = VIP)) +
+      geom_density(alpha = 0.5) +
+      scale_fill_manual(values = c("gray50", "orangered2","red")) +
+      geom_rug(aes(color = VIP), alpha = 0.5) +
+      scale_color_manual(values = c("gray50", "orangered2","red")) +
+      theme_bw()
+p3 <- ggplot(data = na.omit(train), aes(x = ShoppingMall, fill = VIP)) +
+      geom_density(alpha = 0.5) +
+      scale_fill_manual(values = c("blue", "orangered2","red")) +
+      geom_rug(aes(color = VIP), alpha = 0.5) +
+      scale_color_manual(values = c("gray50", "orangered2","red")) +
+      theme_bw()
+p4 <- ggplot(data = na.omit(train), aes(x = Spa, fill = VIP)) +
+      geom_density(alpha = 0.5) +
+      scale_fill_manual(values = c("gray50", "orangered2","red")) +
+      geom_rug(aes(color = VIP), alpha = 0.5) +
+      scale_color_manual(values = c("gray50", "orangered2","red")) +
+      theme_bw()
+p5 <- ggplot(data = na.omit(train), aes(x = VRDeck, fill = VIP)) +
+      geom_density(alpha = 0.5) +
+      scale_fill_manual(values = c("gray50", "orangered2","red")) +
+      geom_rug(aes(color = VIP), alpha = 0.5) +
+      scale_color_manual(values = c("gray50", "orangered2","red")) +
+      theme_bw()
+final_plot <- ggarrange(p1, p2,p3,p4, p5, legend = "top")
+final_plot <- annotate_figure(final_plot, top = text_grob("Distributions", size =15))
+final_plot
+```
+
+They aren't normal distributions, so the values of NA are considered as the median
+
+``` r
+```
+
+```         
+```
+
+```{r}
+summary(train%>% select(c(8:12)))
+```
+
+```{r}
+#Replace the NA values by 0, because it's the median of each one
+train <- mutate_at(train, c(8:12), ~replace(., is.na(.), 0))
+
+```
+
+```{r}
+# Age by category
+ggplot(data = train, aes(x = Age, y = after_stat(count), fill = Transported)) +
+  geom_bar() +
+  scale_fill_manual(values = c("red", "gray")) +
+  labs(title = "Age") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+```
+
+```         
+There's multiple features that can be extracted from the Cabin and PassengerId columns. From looking at the data, you can see that the last part of the PassengerId column represents the number of the person in their group. I extract that data to create a group size column called size. Because there are such small amounts of large groups, I decide to count groups of four or larger simply as four.
+```
+
+```{r}
+# split up cabin and passengerid columns
+train_feature = train %>% 
+  mutate(deck = str_sub(Cabin, 1, 1),
+         num = as.numeric(str_sub(Cabin, 3, -3)),
+         side = str_sub(Cabin, -1, -1),
+         id1 = substring(PassengerId, 1, 4),
+         id2 = substring(PassengerId, 6, 7)
+)
+
+# calculate group sizes
+group_size = train_feature %>% 
+  select(id1, id2) %>% 
+  group_by(id1) %>% 
+ summarise(size = max(id2, na.rm = TRUE)) %>%  # assign highest number in group to id
+  select(id1, size)
+
+# add feature to train_feature
+train_feature = merge(x = train_feature, y = group_size, by = "id1") %>% 
+  mutate(size = ifelse(size >= 4, 4, size)) # max out the feature at 4
+rm(group_size) # remove unnecessary group_size data
+```
+
+```{r}
+
+
+
+```
+
+```{r}
+
+```
+
+```{r}
+# plot the group size feature
+ggplot(data =train_feature , mapping = aes(x = size, fill = Transported)) +
+  geom_bar(position = 'dodge') +
+  ggtitle("Transported by Group Size") +
+  scale_fill_manual('legend', values = c("#F8766D", "#39954E"))
+```
+
+From the above graph we conclude that singles are more likely to stay in the Ship.
+
+```{r}
+# plot cabin
+cabin1 = ggplot(data = train_feature , mapping = aes(x = deck, fill = Transported)) +
+  geom_bar(position = 'dodge') +
+  scale_fill_manual('legend', values = c("#F8766D", "#39954E")) +
+  ggtitle('Transported by Deck')
+cabin2 = ggplot(data = train_feature , mapping = aes(x = side, fill = Transported)) +
+  geom_bar(position = 'dodge') +
+  scale_fill_manual('legend', values = c("#F8766D", "#39954E")) +
+  ggtitle("Transported by Side")
+grid.arrange(cabin1, cabin2)
+```
+
+Deck - There are some interesting patterns between the different decks. Passengers on decks B and C were significantly more likely to be transported, while passengers on deck E were less likely to be transported.
+
+-   Side - There appears to be a noticeable difference in the likelihood of being transported based on which side of the ship passengers are on. Passengers on the port side were safer from being transported than those on the starboard side.
+
+HANDELING MISSING VALUES:
+
+```{r}
+# function to check proportion of missing values
+na_prop = function(vec){
+  sum(is.na(vec)) / length(vec)
+}
+
+# check props
+lapply(train_feature[,1:ncol(train_feature)], na_prop)
+```
+
+Most of the columns are missing about 2% of the data. That doesn't *seem* too bad. Let's see what proportion of rows are missing any values.
+
+```{r}
+# check proportion of rows missing data
+1 - (nrow(drop_na(train_feature)) / nrow(train_feature))
+```
+
+we know that passengers who are in CryoSleep won't be able to spend money at any of the amenities.
+
+```{r}
+#  if CryoSleep = TRUE, then $$ spent = 0
+ train_feature= train_feature %>%
+  mutate(RoomService = ifelse(is.na(RoomService) & CryoSleep == TRUE, 0, RoomService),
+         FoodCourt = ifelse(is.na(FoodCourt) & CryoSleep == TRUE, 0, FoodCourt),
+         ShoppingMall = ifelse(is.na(ShoppingMall) & CryoSleep == TRUE, 0, ShoppingMall),
+         Spa = ifelse(is.na(Spa) & CryoSleep == TRUE, 0, Spa),
+         VRDeck = ifelse(is.na(VRDeck) & CryoSleep == TRUE, 0, VRDeck))
+
+# check na_prop
+lapply(train_feature%>% select(RoomService, FoodCourt, ShoppingMall, Spa, VRDeck), na_prop)
+```
+
+Got rid of some missing values from Amenities.
+
+```{r}
+# Splitting age into age groups for analysis purposes
+
+breaks <- c(0, 16, 55, 75, 100)
+
+# Use cut function to convert age vector into age groups
+train$AgeGroup <- cut(train$Age, breaks=breaks, labels=c("0-16", "16-54", "55-74", "75+"), include.lowest=TRUE)
+
+```
+
+```{r}
+head(train, 2)
+```
+
+```{r}
+plot_gg(AgeGroup) + 
+    ggtitle("Transported vs Age ")
+```
+
+Based on the chart, it appears that passengers under the age of 16 were much more likely to be transported than other age groups. For the other age groups, there is a relatively balanced distribution between those who were taken and those who were not taken.
+
+```{r}
+#Replacing some missing values
+# Convert NA values to "FALSE", because most are FALSE
+train$VIP<- train$VIP %>% replace(is.na(.),"False")
+# Age column
+train$Age[which(is.na(train$Age))] <- median(train$Age, na.rm = TRUE)
+# AgeGroup column
+train$AgeGroup <- as.numeric(train$AgeGroup)
+
+train$AgeGroup[which(is.na(train$AgeGroup))] <- median(train$AgeGroup, na.rm = TRUE)
+
+
+```
+
+```{r}
+colSums(is.na(train))
+
+```
+
+```{r}
+
+```
+
+```{r}
+colSums(is.na(train))
+```
+
+```{r}
+# Correlation map
+train %>% 
+  select_if(is.numeric) %>% 
+  cor %>% 
+  corrplot(method = 'number', order= 'hclust')
+
+
+```
+
+```{r}
+# Correlation map
+train %>% 
+  select_if(is.numeric) %>% 
+  cor %>% 
+  corrplot(method = 'number', order= 'hclust')
+```
+
+There is correlation between these attributes.
+
+```{r}
+
+```
+
+Loading Test data
+
+```{r}
+test <- read.csv('C:/Users/swapn/Downloads/test.csv', stringsAsFactors = T)
+head(test)
+```
+
+```{r}
+status(test)
+
+```
+
+```{r}
+view(status(test))
+```
+
+```{r}
+test <-test %>%
+    separate(PassengerId, c("Group", "Num"), sep = "_", remove = FALSE) 
+# Separating Cabin into 3 parts
+test <- test %>%
+    separate(Cabin, c("CabinDeck", "CabinNum", "CabinSide"), sep = "/") 
+head(test)
+   
+
+```
+
+```{r}
+# Size by groups
+test <- test%>% add_count(Group, name = "GroupSize")
+```
+
+```{r}
+# Grouping ages
+test <- test %>%
+         mutate(Age_group = case_when(Age <= 10  ~ "kid",
+                                      Age > 10 & Age <= 18  ~ "teenager",
+                                      Age > 18 & Age <= 60  ~ "adult",
+                                      Age > 60 ~ "old"))
+
+```
+
+```{r}
+head(test)
+```
+
+```{r}
+test <-test %>% select(-c(Group, Num, CabinNum, Age, Name))
+head(test)
+
+```
+
+```{r}
+str(test)
+
+
+
+```
+
+```{r}
+# Convert the specific columns to characters before applying the replace() function
+
+test$HomePlanet <- as.character(test$HomePlanet)
+test$CryoSleep <- as.character(test$CryoSleep)
+test$CabinDeck <- as.character(test$CabinDeck)
+test$CabinSide <- as.character(test$CabinSide)
+test$Destination <- as.character(test$Destination)
+test$VIP <- as.character(test$VIP)
+# Replace NA values with default values
+test$HomePlanet <- test$HomePlanet %>% replace(is.na(.),"Earth")
+test$CryoSleep <- test$CryoSleep %>% replace(is.na(.),"FALSE")
+test$CabinDeck <- test$CabinDeck %>% replace(is.na(.),"N")
+test$CabinSide <- test$CabinSide %>% replace(is.na(.),"N")
+test$Destination <- test$Destination %>% replace(is.na(.),"TRAPPIST-1e")
+test$VIP <- test$VIP %>% replace(is.na(.),"FALSE")
+
+test <- mutate_at(test, c(8:12), ~replace(., is.na(.), 0))
+
+
+
+
+
+
+
+```
+
+```{r}
+
+colSums(is.na(test))
+```
+
+```{r}
+mice_mod <- mice(data = test, method='rf')
+test <- complete(mice_mod)
+```
+
+```{r}
+# Age by category
+ggplot(data = test, aes(x = Age_group, y = after_stat(count))) +
+  geom_bar() +
+  scale_fill_manual(values = c("red", "gray")) +
+  labs(title = "Age_group") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+```
