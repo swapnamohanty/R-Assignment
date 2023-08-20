@@ -383,3 +383,18 @@ You can use the following operators to compare two variables and return a logica
     ```
 
 2.  What values can a BOOLEAN contain?
+
+    Boolean expressions are logical statements that are either true or false. Booleans are typically used as the result of a comparison.
+
+    ```{r}
+    1 < 2
+    ```
+
+    ```{r}
+    1 > 2
+    ```
+
+    ```{r}
+    1 == 2
+
+    ```
